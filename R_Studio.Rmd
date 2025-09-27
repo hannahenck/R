@@ -1,0 +1,180 @@
+---
+title: "R_Project_Hannah_Enck"
+output: html_document
+date: "2025-07-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Packages to load.
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(words2number)
+library(dplyr)
+library(stringr)
+library(tidyverse)
+```
+
+
+Read in data.
+```{r message=FALSE, warning=FALSE}
+survey <- read.csv("https://raw.githubusercontent.com/andreavillanes/Project_Data_2025/refs/heads/main/Get%20to%20know%20survey%202025.csv")
+```
+
+
+Create a new column called Birth_Month which has only the month portion of Birth_Month_Year.
+```{r message=FALSE, warning=FALSE}
+survey$Birth_Month = sapply(strsplit(survey$Birth_Month_Year, ","), "[", 1)
+```
+
+
+Create a new column called Birth_Year which has only the year portion of Birth_Month_Year.
+```{r message=FALSE, warning=FALSE}
+survey$Birth_Year = sapply(strsplit(survey$Birth_Month_Year, ","), "[", 2)
+```
+
+
+Standardize the values for Birth_Month and Birth_Year.
+```{r message=FALSE, warning=FALSE}
+survey$Birth_Year = to_number(survey$Birth_Year)
+
+survey <- survey %>%
+  mutate(Birth_Month = recode(Birth_Month,
+                        "1" = "January",
+                        "2" = "February",
+                        "3" = "March",
+                        "4" = "April",
+                        "5" = "May",
+                        "6" = "June",
+                        "7" = "July",
+                        "8" = "August",
+                        "9" = "September",
+                        "10" = "October",
+                        "11" = "November",
+                        "12" = "December")) %>%
+  mutate(Birth_Month = str_to_title(Birth_Month))
+```
+
+
+Show the five most frequent birth months and the five least frequent birth months.
+```{r message=FALSE, warning=FALSE}
+monthfreqs = sort(table(survey$Birth_Month), decreasing = TRUE)
+
+# 5 most frequent birth months
+top5months = survey %>% 
+  count(Birth_Month, sort = TRUE) %>%
+  head(5)
+print(top5months)
+
+# 5 least frequent birth months
+least5months = survey %>% 
+  count(Birth_Month, sort = TRUE) %>%
+  tail(5)
+print(least5months)
+```
+
+
+Show the five most frequent birth years and the five least frequent birth years.
+```{r message=FALSE, warning=FALSE}
+yearfreqs = sort(table(survey$Birth_Year), decreasing = TRUE)
+
+# 5 most frequent birth years
+top5years = survey %>% 
+  count(Birth_Year, sort = TRUE) %>%
+  head(5)
+print(top5years)
+
+# 5 least frequent birth years
+least5years = survey %>% 
+  count(Birth_Year, sort = TRUE) %>%
+  tail(5)
+print(least5years)
+```
+
+
+Clean the State column to eliminate any non-US state and standardize the values for State. 
+```{r}
+# define what counts as a US state
+state_names <- c("ALABAMA", "ALASKA", "ARIZONA", "ARKANSAS", "CALIFORNIA", "COLORADO", "CONNECTICUT", "DELAWARE", "FLORIDA", "GEORGIA", "HAWAII", "IDAHO", "ILLINOIS", "INDIANA", "IOWA", "KANSAS", "KENTUCKY", "LOUISIANA", "MAINE", "MARYLAND", "MASSACHUSETTS", "MICIGAN", "MINNESOTA", "MISSISSIPPI", "MISSOURI", "MONTANA", "NEBRASKA", "NEVADA", "NEW HAMPSHIRE", "NEW JERSEY", "NEW MEXICO", "NEW YORK", "NORTH CAROLINA", "NORTH DAKOTA", "OHIO", "OKLAHOMA", "OREGON", "PENNSYLVANIA", "RHODE ISLAND", "SOUTH CAROLINA", "SOUTH DAKOTA", "TENNESSEE", "TEXAS", "UTAH", "VERMONT", "VIRGINIA", "WASHINGTON", "WEST VIRGINIA", "WISCONSIN", "WYOMING")
+
+state_abbreviations <- c("AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA","HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY")
+
+# create a recode map to change abbreviations to state names written out
+recode_states <- tibble(state_abbreviations, state_names)
+recode_map <- setNames(recode_states$state_names, recode_states$state_abbreviations)
+
+survey$State <- str_trim(survey$State)
+
+survey <- survey %>%
+  mutate(State = recode(State, !!!recode_map, .default=State))
+
+survey <- survey %>%
+  mutate(State = toupper(State)) %>%
+  mutate(State = case_when(State %in% recode_map ~ recode(State, !!!recode_map),
+                           TRUE ~ NA_character_)) %>%
+  mutate(State = str_to_title(State))
+
+```
+
+
+Show the five most frequent states and the five least frequent states. 
+```{r}
+# 5 most frequent states
+top5states = survey %>% 
+  count(State, sort = TRUE) %>%
+  head(5)
+print(top5states)
+
+# 5 least frequent states
+least5states = survey %>% 
+  count(State, sort = TRUE) %>%
+  tail(5)
+print(least5states)
+```
+
+
+Standardize the Country column. Then show the five most frequent countries and the five least frequent countries.
+```{r}
+survey <- survey %>%
+  mutate(Country = case_when(
+    str_to_upper(Country) %in% c("USA", "US", "UNITED STATES OF AMERICA", "UNITED STATES") ~ "United States", TRUE ~ Country))
+
+# 5 most frequent countries
+top5countries = survey %>% 
+  count(Country, sort = TRUE) %>%
+  head(5)
+print(top5countries)
+
+# 5 least frequent countries
+least5countries = survey %>% 
+  count(Country, sort = TRUE) %>%
+  tail(5)
+print(least5countries)
+```
+
+
+Clean the How_Hear_About_Program column by eliminating the number and any extra character portion in those responses. Show the five most frequent responses to this column.
+```{r}
+survey$How_Hear_About_Program <- str_remove(survey$How_Hear_About_Program, "^\\d+\\. ")
+
+#5 most frequent responses
+top5responses = survey %>% 
+  count(How_Hear_About_Program, sort = TRUE) %>%
+  head(5)
+print(top5responses)
+```
+
+
+Transform the data from wide to long on column Languages by duplicating the values of the other columns. 
+Use the comma as a separator for Languages. Show the five most frequent languages. 
+```{r}
+transformed <- survey %>%
+  separate_rows(Languages, sep = ',') %>%
+  mutate(Languages = str_trim(Languages)) %>%
+  count(Languages, sort = TRUE) %>%
+  head(5)
+print(transformed)
+```
